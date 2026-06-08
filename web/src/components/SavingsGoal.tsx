@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Alert, Badge, Button, Card, Progress, Spinner, TextInput } from 'flowbite-react';
-import { CircleDollarSign, RefreshCcw } from 'lucide-react';
+import { CircleDollarSign, Loader2, RefreshCcw } from 'lucide-react';
 import {
   contractConfigured,
   readSavingsState,
@@ -11,21 +10,28 @@ import {
 } from '@/lib/contract';
 import { submitSignedXDR, pollTransaction } from '@/lib/payment';
 import { CONTRACT_ID, NETWORK_PASSPHRASE } from '@/lib/stellar';
+import { friendlyError } from '@/lib/userFeedback';
+import type { ToastTone } from '@/components/ToastStack';
 
-export default function SavingsGoal({ publicKey }: { publicKey: string | null }) {
+export default function SavingsGoal({
+  publicKey,
+  onNotify,
+}: {
+  publicKey: string | null;
+  onNotify?: (tone: ToastTone, title: string, detail?: string) => void;
+}) {
   const configured = contractConfigured();
   const [state, setState] = useState<SavingsState | null>(null);
   const [loading, setLoading] = useState(configured);
   const [refreshToken, setRefreshToken] = useState(0);
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState('');
-  const [error, setError] = useState('');
+  const [inlineStatus, setInlineStatus] = useState('');
 
   const refresh = async () => {
     if (!configured) return;
     setLoading(true);
-    setError('');
+    setInlineStatus('');
     setRefreshToken((token) => token + 1);
   };
 
@@ -41,7 +47,9 @@ export default function SavingsGoal({ publicKey }: { publicKey: string | null })
         setState(nextState);
       } catch (e: unknown) {
         if (!active) return;
-        setError(e instanceof Error ? e.message : 'Failed to read contract');
+        const message = friendlyError(e, 'Contract state could not be loaded.');
+        setInlineStatus(message);
+        onNotify?.('error', 'Network error', message);
       } finally {
         if (active) {
           setLoading(false);
@@ -54,13 +62,13 @@ export default function SavingsGoal({ publicKey }: { publicKey: string | null })
     return () => {
       active = false;
     };
-  }, [configured, refreshToken]);
+  }, [configured, onNotify, refreshToken]);
 
   const contribute = async () => {
     if (!publicKey) return;
     setBusy(true);
-    setMsg('');
-    setError('');
+    setInlineStatus('Preparing transaction');
+    onNotify?.('loading', 'Transaction pending', 'Preparing your savings contribution.');
     try {
       const value = Number(amount);
       if (!Number.isFinite(value) || value <= 0) {
@@ -80,11 +88,14 @@ export default function SavingsGoal({ publicKey }: { publicKey: string | null })
       }
       const hash = await submitSignedXDR(signed.signedTxXdr);
       await pollTransaction(hash);
-      setMsg('Contribution recorded on-chain.');
+      setInlineStatus('Contribution confirmed');
+      onNotify?.('success', 'Transaction confirmed', 'Savings contribution recorded on-chain.');
       setAmount('');
       await refresh();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Contribution failed');
+      const message = friendlyError(e, 'Contribution could not be completed.');
+      setInlineStatus(message);
+      onNotify?.('error', 'Transaction failed', message);
     } finally {
       setBusy(false);
     }
@@ -92,23 +103,21 @@ export default function SavingsGoal({ publicKey }: { publicKey: string | null })
 
   if (!configured) {
     return (
-      <Card className="rounded-lg border-dashed">
+      <section className="premium-card animate-card-in rounded-xl border-dashed p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Soroban savings goal</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Deploy the existing Rust contract to enable on-chain reads and contributions.
-            </p>
+            <p className="text-sm font-medium text-blue-300">On-chain Savings</p>
+            <h2 className="mt-1 text-2xl font-semibold text-slate-50">Contract not configured</h2>
           </div>
-          <Badge color="warning">Not configured</Badge>
+          <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-sm text-amber-100">
+            Setup needed
+          </span>
         </div>
-        <Alert color="warning">
-          Set NEXT_PUBLIC_CONTRACT_ID in web/.env.local after deployment.
-        </Alert>
-        <div className="rounded-lg bg-gray-900 p-3 font-mono text-sm text-gray-100">
-          .\scripts\deploy.ps1
-        </div>
-      </Card>
+        <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300">
+          The dashboard is ready for planning. Add a contract ID when you want to enable
+          signed on-chain contributions.
+        </p>
+      </section>
     );
   }
 
@@ -118,68 +127,90 @@ export default function SavingsGoal({ publicKey }: { publicKey: string | null })
       : 0;
 
   return (
-    <Card className="rounded-lg">
+    <section className="premium-card animate-card-in rounded-xl p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Soroban savings goal</h2>
-          <p className="mt-1 break-all text-sm text-gray-600">Contract: {CONTRACT_ID}</p>
+          <p className="text-sm font-medium text-blue-300">On-chain Savings</p>
+          <h2 className="mt-1 text-2xl font-semibold text-slate-50">Savings contract</h2>
+          <p className="mt-1 max-w-xl truncate font-mono text-xs text-slate-500">
+            {CONTRACT_ID}
+          </p>
         </div>
-        <Badge color="success">Configured</Badge>
+        <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-sm text-emerald-100">
+          Live
+        </span>
       </div>
 
       {loading && (
-        <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <Spinner size="sm" />
-          <span className="text-sm text-gray-600">Reading contract state</span>
+        <div className="mt-6 flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/55 p-4">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-300" />
+          <span className="text-sm text-slate-300">Reading contract state</span>
         </div>
       )}
 
       {!loading && state && (
-        <div className="space-y-4">
+        <div className="mt-6 space-y-5">
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 p-4">
-              <p className="text-sm text-gray-500">Saved</p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">{state.saved}</p>
+            <div className="rounded-xl border border-slate-700 bg-slate-900/55 p-4">
+              <p className="text-sm text-slate-400">Saved</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-50">{state.saved}</p>
             </div>
-            <div className="rounded-lg border border-gray-200 p-4">
-              <p className="text-sm text-gray-500">Target</p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">{state.target}</p>
+            <div className="rounded-xl border border-slate-700 bg-slate-900/55 p-4">
+              <p className="text-sm text-slate-400">Target</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-50">{state.target}</p>
             </div>
           </div>
 
           <div>
-            <Progress progress={pct} color={pct >= 100 ? 'green' : 'blue'} size="lg" />
-            <p className="mt-2 text-right text-sm font-medium text-gray-700">{pct}%</p>
+            <div className="h-2.5 overflow-hidden rounded-full bg-slate-800">
+              <div
+                className="h-full rounded-full bg-emerald-400 transition-all duration-700 ease-out"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <p className="mt-2 text-right text-sm text-slate-300">{pct}% complete</p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-            <TextInput
+            <input
               type="number"
               min="1"
               placeholder="Amount to contribute"
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
+              className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-slate-50 placeholder:text-slate-500 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/25"
             />
-            <Button onClick={contribute} disabled={busy || !publicKey || !amount}>
+            <button
+              type="button"
+              onClick={contribute}
+              disabled={busy || !publicKey || !amount}
+              className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+            >
               <CircleDollarSign className="mr-2 h-4 w-4" />
               {busy ? 'Working' : 'Contribute'}
-            </Button>
-            <Button color="light" onClick={refresh} disabled={busy || loading}>
+            </button>
+            <button
+              type="button"
+              onClick={refresh}
+              disabled={busy || loading}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
               <RefreshCcw className="mr-2 h-4 w-4" />
               Refresh
-            </Button>
+            </button>
           </div>
 
           {!publicKey && (
-            <Alert color="info">
-              Connect Freighter to sign a Soroban contribution transaction.
-            </Alert>
+            <p className="rounded-xl border border-blue-400/25 bg-blue-400/10 p-4 text-sm text-blue-100">
+              Connect your wallet to sign a savings contribution.
+            </p>
           )}
         </div>
       )}
 
-      {msg && <Alert color="success">{msg}</Alert>}
-      {error && <Alert color="failure">{error}</Alert>}
-    </Card>
+      {inlineStatus && !loading && (
+        <p className="mt-4 text-sm text-slate-400">{inlineStatus}</p>
+      )}
+    </section>
   );
 }
