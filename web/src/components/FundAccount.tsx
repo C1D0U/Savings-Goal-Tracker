@@ -1,5 +1,8 @@
 'use client';
+
 import { useState } from 'react';
+import { Alert, Button } from 'flowbite-react';
+import { Coins } from 'lucide-react';
 import { fundTestnetAccount } from '@/lib/stellar';
 
 export default function FundAccount({
@@ -26,15 +29,12 @@ export default function FundAccount({
   };
 
   return (
-    <div>
-      <button
-        onClick={fund}
-        disabled={loading}
-        className="rounded bg-amber-400 px-3 py-1.5 text-sm font-medium text-amber-950 transition-colors hover:bg-amber-500 disabled:opacity-50"
-      >
-        {loading ? 'Funding…' : 'Fund with Friendbot (testnet)'}
-      </button>
-      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+    <div className="space-y-2">
+      <Button color="warning" size="sm" onClick={fund} disabled={loading}>
+        <Coins className="mr-2 h-4 w-4" />
+        {loading ? 'Funding' : 'Fund with Friendbot'}
+      </Button>
+      {error && <Alert color="failure">{error}</Alert>}
     </div>
   );
 }

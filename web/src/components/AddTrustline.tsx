@@ -1,5 +1,8 @@
 'use client';
+
 import { useState } from 'react';
+import { Alert, Button } from 'flowbite-react';
+import { Link2 } from 'lucide-react';
 import { buildAddUsdcTrustlineXDR } from '@/lib/trustline';
 import { signAndSubmit } from '@/lib/sign';
 
@@ -29,20 +32,22 @@ export default function AddTrustline({
     }
   };
 
-  if (status === 'done') {
-    return <p className="text-sm text-emerald-600">USDC trustline added.</p>;
-  }
-
   return (
-    <div>
-      <button
+    <div className="space-y-2">
+      <Button
+        color={status === 'done' ? 'success' : 'light'}
+        size="sm"
         onClick={add}
         disabled={status === 'working'}
-        className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
       >
-        {status === 'working' ? 'Adding USDC trustline…' : 'Add USDC trustline'}
-      </button>
-      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+        <Link2 className="mr-2 h-4 w-4" />
+        {status === 'working'
+          ? 'Adding trustline'
+          : status === 'done'
+            ? 'USDC trustline added'
+            : 'Add USDC trustline'}
+      </Button>
+      {status === 'error' && error && <Alert color="failure">{error}</Alert>}
     </div>
   );
 }

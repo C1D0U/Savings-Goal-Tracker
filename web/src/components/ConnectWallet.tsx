@@ -1,5 +1,8 @@
 'use client';
+
 import { useState } from 'react';
+import { Alert, Button } from 'flowbite-react';
+import { Clipboard, LogOut, Wallet } from 'lucide-react';
 import type { WalletState } from '@/hooks/useWallet';
 
 export default function ConnectWallet({
@@ -20,34 +23,32 @@ export default function ConnectWallet({
 
   if (publicKey) {
     return (
-      <div className="flex items-center gap-2">
-        <button
-          onClick={copy}
-          title="Copy full address"
-          className="rounded bg-gray-100 px-3 py-1 font-mono text-sm text-gray-700 transition-colors hover:bg-gray-200"
-        >
-          {copied ? 'Copied!' : `${publicKey.slice(0, 6)}…${publicKey.slice(-6)}`}
-        </button>
-        <button
-          onClick={disconnect}
-          className="text-sm text-red-500 hover:underline"
-        >
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button color="light" size="sm" onClick={copy} title="Copy full address">
+          <Clipboard className="mr-2 h-4 w-4" />
+          <span className="font-mono">
+            {copied ? 'Copied' : `${publicKey.slice(0, 6)}...${publicKey.slice(-6)}`}
+          </span>
+        </Button>
+        <Button color="failure" size="sm" onClick={disconnect} title="Disconnect wallet">
+          <LogOut className="mr-2 h-4 w-4" />
           Disconnect
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="text-right">
-      <button
-        onClick={connect}
-        disabled={connecting}
-        className="rounded bg-indigo-600 px-4 py-2 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
-      >
-        {connecting ? 'Connecting…' : 'Connect Freighter'}
-      </button>
-      {error && <p className="mt-2 max-w-xs text-sm text-red-500">{error}</p>}
+    <div className="flex flex-col items-end gap-2">
+      <Button color="blue" size="sm" onClick={connect} disabled={connecting}>
+        <Wallet className="mr-2 h-4 w-4" />
+        {connecting ? 'Connecting' : 'Connect Freighter'}
+      </Button>
+      {error && (
+        <Alert color="failure" className="max-w-xs">
+          {error}
+        </Alert>
+      )}
     </div>
   );
 }

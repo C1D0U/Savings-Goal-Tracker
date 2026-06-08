@@ -1,5 +1,8 @@
 'use client';
+
 import { useState } from 'react';
+import { Alert, Button, Card, Label, Select, TextInput } from 'flowbite-react';
+import { Send } from 'lucide-react';
 import {
   buildPaymentXDR,
   submitSignedXDR,
@@ -19,10 +22,10 @@ type Status =
 
 const STATUS_LABEL: Record<Status, string> = {
   idle: 'Send',
-  building: 'Building transaction…',
-  signing: 'Waiting for Freighter…',
-  submitting: 'Submitting…',
-  polling: 'Confirming on-chain…',
+  building: 'Building transaction',
+  signing: 'Waiting for Freighter',
+  submitting: 'Submitting',
+  polling: 'Confirming on-chain',
   success: 'Send',
   error: 'Send',
 };
@@ -77,74 +80,76 @@ export default function SendPayment({
   };
 
   return (
-    <div className="mt-6 rounded border border-gray-200 bg-white p-6">
-      <h2 className="mb-4 text-lg font-semibold text-gray-900">Send Payment</h2>
+    <Card className="rounded-lg">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900">Send test payment</h2>
+        <p className="mt-1 text-sm text-gray-600">
+          Optional wallet utility from the starter scaffold.
+        </p>
+      </div>
 
       <div className="space-y-4">
         <div>
-          <label className="mb-1 block text-sm text-gray-600">Asset</label>
-          <select
+          <Label htmlFor="payment-asset">Asset</Label>
+          <Select
+            id="payment-asset"
             value={asset}
-            onChange={(e) => setAsset(e.target.value as AssetCode)}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-gray-900"
+            onChange={(event) => setAsset(event.target.value as AssetCode)}
           >
             <option value="XLM">XLM</option>
             <option value="USDC">USDC (needs a trustline)</option>
-          </select>
+          </Select>
         </div>
 
         <div>
-          <label className="mb-1 block text-sm text-gray-600">
-            Destination address
-          </label>
-          <input
+          <Label htmlFor="payment-destination">Destination address</Label>
+          <TextInput
+            id="payment-destination"
             type="text"
-            placeholder="G… (must be an existing funded testnet account)"
+            placeholder="G... funded testnet account"
             value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2 font-mono text-sm text-gray-900"
+            onChange={(event) => setDestination(event.target.value)}
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm text-gray-600">Amount</label>
-          <input
+          <Label htmlFor="payment-amount">Amount</Label>
+          <TextInput
+            id="payment-amount"
             type="number"
+            min="0"
             placeholder="0.00"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-gray-900"
+            onChange={(event) => setAmount(event.target.value)}
           />
         </div>
 
-        <button
+        <Button
+          color="green"
           onClick={handleSend}
           disabled={busy || !destination || !amount}
-          className="w-full rounded bg-emerald-600 py-3 font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+          className="w-full"
         >
+          <Send className="mr-2 h-4 w-4" />
           {STATUS_LABEL[status]}
-        </button>
+        </Button>
       </div>
 
       {status === 'success' && (
-        <div className="mt-4 rounded border border-emerald-200 bg-emerald-50 p-3">
-          <p className="font-medium text-emerald-700">Payment confirmed!</p>
+        <Alert color="success">
+          Payment confirmed.{' '}
           <a
             href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="break-all text-sm text-indigo-600 hover:underline"
+            className="font-medium underline"
           >
-            View on Stellar Expert →
+            View on Stellar Expert
           </a>
-        </div>
+        </Alert>
       )}
 
-      {status === 'error' && (
-        <div className="mt-4 rounded border border-red-200 bg-red-50 p-3">
-          <p className="text-sm text-red-700">{errorMsg}</p>
-        </div>
-      )}
-    </div>
+      {status === 'error' && <Alert color="failure">{errorMsg}</Alert>}
+    </Card>
   );
 }

@@ -1,5 +1,8 @@
 'use client';
+
 import { useEffect, useState } from 'react';
+import { Alert, Badge, Button, Card, Progress, Spinner, TextInput } from 'flowbite-react';
+import { CircleDollarSign, RefreshCcw } from 'lucide-react';
 import {
   contractConfigured,
   readSavingsState,
@@ -7,7 +10,7 @@ import {
   type SavingsState,
 } from '@/lib/contract';
 import { submitSignedXDR, pollTransaction } from '@/lib/payment';
-import { NETWORK_PASSPHRASE } from '@/lib/stellar';
+import { CONTRACT_ID, NETWORK_PASSPHRASE } from '@/lib/stellar';
 
 export default function SavingsGoal({ publicKey }: { publicKey: string | null }) {
   const configured = contractConfigured();
@@ -59,7 +62,12 @@ export default function SavingsGoal({ publicKey }: { publicKey: string | null })
     setMsg('');
     setError('');
     try {
-      const xdr = await buildContributeXDR(publicKey, Number(amount));
+      const value = Number(amount);
+      if (!Number.isFinite(value) || value <= 0) {
+        throw new Error('Contribution amount must be greater than zero.');
+      }
+
+      const xdr = await buildContributeXDR(publicKey, value);
       const freighter = await import('@stellar/freighter-api');
       const signed = await freighter.signTransaction(xdr, {
         networkPassphrase: NETWORK_PASSPHRASE,
@@ -72,7 +80,7 @@ export default function SavingsGoal({ publicKey }: { publicKey: string | null })
       }
       const hash = await submitSignedXDR(signed.signedTxXdr);
       await pollTransaction(hash);
-      setMsg('Contribution recorded on-chain!');
+      setMsg('Contribution recorded on-chain.');
       setAmount('');
       await refresh();
     } catch (e: unknown) {
@@ -84,20 +92,23 @@ export default function SavingsGoal({ publicKey }: { publicKey: string | null })
 
   if (!configured) {
     return (
-      <div className="mt-6 rounded border border-dashed border-gray-300 bg-gray-50 p-6">
-        <h2 className="text-lg font-semibold text-gray-900">Savings Goal (Soroban)</h2>
-        <p className="mt-2 text-sm text-gray-600">
-          No contract deployed yet. Deploy the Rust contract and set its ID to
-          enable this panel:
-        </p>
-        <pre className="mt-2 overflow-x-auto rounded bg-gray-900 p-3 text-xs text-gray-100">
+      <Card className="rounded-lg border-dashed">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Soroban savings goal</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Deploy the existing Rust contract to enable on-chain reads and contributions.
+            </p>
+          </div>
+          <Badge color="warning">Not configured</Badge>
+        </div>
+        <Alert color="warning">
+          Set NEXT_PUBLIC_CONTRACT_ID in web/.env.local after deployment.
+        </Alert>
+        <div className="rounded-lg bg-gray-900 p-3 font-mono text-sm text-gray-100">
           .\scripts\deploy.ps1
-        </pre>
-        <p className="mt-2 text-xs text-gray-500">
-          The script writes <code>NEXT_PUBLIC_CONTRACT_ID</code> into{' '}
-          <code>web/.env.local</code>; restart <code>npm run dev</code> afterward.
-        </p>
-      </div>
+        </div>
+      </Card>
     );
   }
 
@@ -107,53 +118,68 @@ export default function SavingsGoal({ publicKey }: { publicKey: string | null })
       : 0;
 
   return (
-    <div className="mt-6 rounded border border-gray-200 bg-white p-6">
-      <h2 className="mb-4 text-lg font-semibold text-gray-900">
-        Savings Goal (Soroban)
-      </h2>
+    <Card className="rounded-lg">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">Soroban savings goal</h2>
+          <p className="mt-1 break-all text-sm text-gray-600">Contract: {CONTRACT_ID}</p>
+        </div>
+        <Badge color="success">Configured</Badge>
+      </div>
 
-      {loading && <p className="text-sm text-gray-400">Reading contract state...</p>}
-
-      {!loading && state && (
-        <>
-          <div className="mb-2 flex justify-between text-sm text-gray-600">
-            <span>Saved: {state.saved}</span>
-            <span>Target: {state.target}</span>
-          </div>
-          <div className="h-3 w-full overflow-hidden rounded-full bg-gray-200">
-            <div
-              className="h-full rounded-full bg-indigo-600 transition-all"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <p className="mt-1 text-right text-xs text-gray-500">{pct}%</p>
-
-          <div className="mt-4 flex gap-2">
-            <input
-              type="number"
-              placeholder="Amount to contribute"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="flex-1 rounded border border-gray-300 px-3 py-2 text-gray-900"
-            />
-            <button
-              onClick={contribute}
-              disabled={busy || !publicKey || !amount}
-              className="rounded bg-indigo-600 px-4 py-2 font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {busy ? 'Working...' : 'Contribute'}
-            </button>
-          </div>
-          {!publicKey && (
-            <p className="mt-2 text-xs text-gray-500">
-              Connect your wallet to contribute (it signs the Soroban transaction).
-            </p>
-          )}
-        </>
+      {loading && (
+        <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <Spinner size="sm" />
+          <span className="text-sm text-gray-600">Reading contract state</span>
+        </div>
       )}
 
-      {msg && <p className="mt-3 text-sm text-emerald-600">{msg}</p>}
-      {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
-    </div>
+      {!loading && state && (
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-gray-200 p-4">
+              <p className="text-sm text-gray-500">Saved</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">{state.saved}</p>
+            </div>
+            <div className="rounded-lg border border-gray-200 p-4">
+              <p className="text-sm text-gray-500">Target</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">{state.target}</p>
+            </div>
+          </div>
+
+          <div>
+            <Progress progress={pct} color={pct >= 100 ? 'green' : 'blue'} size="lg" />
+            <p className="mt-2 text-right text-sm font-medium text-gray-700">{pct}%</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+            <TextInput
+              type="number"
+              min="1"
+              placeholder="Amount to contribute"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+            />
+            <Button onClick={contribute} disabled={busy || !publicKey || !amount}>
+              <CircleDollarSign className="mr-2 h-4 w-4" />
+              {busy ? 'Working' : 'Contribute'}
+            </Button>
+            <Button color="light" onClick={refresh} disabled={busy || loading}>
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
+
+          {!publicKey && (
+            <Alert color="info">
+              Connect Freighter to sign a Soroban contribution transaction.
+            </Alert>
+          )}
+        </div>
+      )}
+
+      {msg && <Alert color="success">{msg}</Alert>}
+      {error && <Alert color="failure">{error}</Alert>}
+    </Card>
   );
 }
