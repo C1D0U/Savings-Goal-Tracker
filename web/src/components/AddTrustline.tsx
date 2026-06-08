@@ -21,6 +21,7 @@ export default function AddTrustline({
   const [status, setStatus] = useState<Status>('idle');
 
   const add = async () => {
+    if (!publicKey) return;
     setStatus('working');
     onNotify?.('loading', 'Transaction pending', 'Waiting for Freighter approval.');
     try {
@@ -39,7 +40,7 @@ export default function AddTrustline({
     <button
       type="button"
       onClick={add}
-      disabled={status === 'working'}
+      disabled={status === 'working' || !publicKey}
       className={`inline-flex items-center rounded-lg border px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 ${
         status === 'done'
           ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-100 focus:ring-emerald-300'
@@ -51,7 +52,9 @@ export default function AddTrustline({
         ? 'Adding trustline'
         : status === 'done'
           ? 'USDC ready'
-          : 'Add USDC trustline'}
+          : publicKey
+            ? 'Add USDC trustline'
+            : 'Connect wallet'}
     </button>
   );
 }

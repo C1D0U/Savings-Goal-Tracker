@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Clipboard, LogOut, Wallet } from 'lucide-react';
 import type { ToastTone } from '@/components/ToastStack';
 import type { WalletState } from '@/hooks/useWallet';
+import { primaryButtonClassName } from '@/components/buttonStyles';
 
 export default function ConnectWallet({
   publicKey,
@@ -56,7 +57,7 @@ export default function ConnectWallet({
       type="button"
       onClick={connect}
       disabled={connecting}
-      className="inline-flex items-center rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-950/25 hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-blue-300"
+      className={primaryButtonClassName()}
     >
       <Wallet className="mr-2 h-4 w-4" />
       {connecting ? 'Connecting' : 'Connect Wallet'}

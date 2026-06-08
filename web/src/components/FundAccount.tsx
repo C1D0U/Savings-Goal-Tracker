@@ -10,7 +10,7 @@ export default function FundAccount({
   publicKey,
   onFunded,
   onNotify,
-}: {
+  }: {
   publicKey: string;
   onFunded: () => void;
   onNotify?: (tone: ToastTone, title: string, detail?: string) => void;
@@ -18,6 +18,7 @@ export default function FundAccount({
   const [loading, setLoading] = useState(false);
 
   const fund = async () => {
+    if (!publicKey) return;
     setLoading(true);
     onNotify?.('loading', 'Funding account', 'Requesting testnet XLM from Friendbot.');
     try {
@@ -35,11 +36,11 @@ export default function FundAccount({
     <button
       type="button"
       onClick={fund}
-      disabled={loading}
-      className="inline-flex items-center rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-amber-300"
+      disabled={loading || !publicKey}
+      className="inline-flex w-full items-center justify-center rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-amber-300"
     >
       <Coins className="mr-2 h-4 w-4" />
-      {loading ? 'Funding' : 'Fund account'}
+      {loading ? 'Funding' : publicKey ? 'Fund account' : 'Connect wallet'}
     </button>
   );
 }

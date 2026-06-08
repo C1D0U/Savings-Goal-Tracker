@@ -11,6 +11,7 @@ import {
 import { NETWORK_PASSPHRASE } from '@/lib/stellar';
 import { friendlyError } from '@/lib/userFeedback';
 import type { ToastTone } from '@/components/ToastStack';
+import { primaryButtonClassName } from '@/components/buttonStyles';
 
 type Status =
   | 'idle'
@@ -145,7 +146,7 @@ export default function SendPayment({
           type="button"
           onClick={handleSend}
           disabled={busy || !destination || !amount}
-          className="inline-flex w-full items-center justify-center rounded-lg bg-blue-500 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          className={primaryButtonClassName('w-full')}
         >
           <Send className="mr-2 h-4 w-4" />
           {STATUS_LABEL[status]}

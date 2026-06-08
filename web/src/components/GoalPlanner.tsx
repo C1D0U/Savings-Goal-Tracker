@@ -1,16 +1,11 @@
 'use client';
 
 import { FormEvent, useMemo, useState } from 'react';
-import { PlusCircle, Target } from 'lucide-react';
+import { Button } from 'flowbite-react';
+import { ChevronDown, ChevronUp, PlusCircle, Target } from 'lucide-react';
+import { remainingAmount, goalProgress, type SavingsGoalItem } from '@/lib/savingsDashboard';
 import type { ToastTone } from '@/components/ToastStack';
-
-export interface SavingsGoalItem {
-  id: string;
-  title: string;
-  target: number;
-  saved: number;
-  deadline: string;
-}
+import { primaryButtonClassName } from '@/components/buttonStyles';
 
 const money = new Intl.NumberFormat('en-PH', {
   style: 'currency',
@@ -18,13 +13,7 @@ const money = new Intl.NumberFormat('en-PH', {
   maximumFractionDigits: 0,
 });
 
-export function goalProgress(goal: SavingsGoalItem) {
-  return goal.target > 0 ? Math.min(100, Math.round((goal.saved / goal.target) * 100)) : 0;
-}
-
-export function remainingAmount(goal: SavingsGoalItem) {
-  return Math.max(0, goal.target - goal.saved);
-}
+const DEFAULT_VISIBLE_GOALS = 3;
 
 export default function GoalPlanner({
   goals,
@@ -39,6 +28,7 @@ export default function GoalPlanner({
   onCreate: (goal: SavingsGoalItem) => void;
   onNotify?: (tone: ToastTone, title: string, detail?: string) => void;
 }) {
+  const [visibleCount, setVisibleCount] = useState(DEFAULT_VISIBLE_GOALS);
   const [title, setTitle] = useState('');
   const [target, setTarget] = useState('');
   const [saved, setSaved] = useState('');
@@ -48,6 +38,9 @@ export default function GoalPlanner({
     () => goals.reduce((sum, goal) => sum + remainingAmount(goal), 0),
     [goals],
   );
+  const visibleGoals = goals.slice(0, visibleCount);
+  const canToggleGoals = goals.length > DEFAULT_VISIBLE_GOALS;
+  const showAllGoals = visibleCount >= goals.length;
 
   const notify = (tone: ToastTone, nextTitle: string, detail?: string) => {
     onNotify?.(tone, nextTitle, detail);
@@ -104,18 +97,29 @@ export default function GoalPlanner({
         </div>
 
         {!goals.length && (
-          <div className="mt-6 rounded-xl border border-dashed border-slate-700 bg-slate-900/55 p-10 text-center">
-            <Target className="mx-auto h-10 w-10 text-slate-500" />
-            <p className="mt-4 text-base font-semibold text-slate-100">No goals yet</p>
-            <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-400">
-              Create your first savings target and the dashboard will surface progress,
-              remaining amount, and next action.
-            </p>
+          <div className="mt-6 rounded-2xl border border-slate-700 bg-gradient-to-b from-slate-900/90 to-slate-950/80 p-8 shadow-xl shadow-black/20">
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="max-w-xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
+                  <Target className="h-3.5 w-3.5 text-emerald-300" />
+                  Portfolio empty
+                </div>
+                <h3 className="mt-4 text-xl font-semibold text-slate-50">
+                  No savings goals yet
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  Create your first target to start tracking progress, remaining balance, and contributions.
+                </p>
+              </div>
+              <Button href="#create-goal" color="blue">
+                Create Goal
+              </Button>
+            </div>
           </div>
         )}
 
         <div className="mt-6 space-y-3">
-          {goals.map((goal) => {
+          {visibleGoals.map((goal) => {
             const pct = goalProgress(goal);
             const isSelected = goal.id === selectedGoalId;
 
@@ -159,6 +163,30 @@ export default function GoalPlanner({
             );
           })}
         </div>
+
+        {canToggleGoals && (
+          <div className="mt-5 flex justify-center">
+            <Button
+              color="gray"
+              size="sm"
+              onClick={() =>
+                setVisibleCount(showAllGoals ? DEFAULT_VISIBLE_GOALS : goals.length)
+              }
+            >
+              {showAllGoals ? (
+                <>
+                  <ChevronUp className="mr-2 h-4 w-4" />
+                  Show less
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="mr-2 h-4 w-4" />
+                  Show more
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </section>
 
       <section id="create-goal" className="premium-card animate-card-in rounded-xl p-6">
@@ -227,7 +255,7 @@ export default function GoalPlanner({
 
           <button
             type="submit"
-            className="inline-flex w-full items-center justify-center rounded-lg bg-blue-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-950/25 hover:bg-blue-400 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className={primaryButtonClassName('w-full')}
           >
             <PlusCircle className="mr-2 h-4 w-4" />
             Create Goal
