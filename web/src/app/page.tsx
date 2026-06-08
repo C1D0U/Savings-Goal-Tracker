@@ -1,34 +1,32 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowDownRight,
   CheckCircle2,
   CircleDollarSign,
   Goal,
   LockKeyhole,
-  RefreshCcw,
-  Settings2,
   Target,
   TrendingUp,
   WalletCards,
 } from 'lucide-react';
+import { Button } from 'flowbite-react';
 import { useWallet } from '@/hooks/useWallet';
+import { useSavingsDashboard } from '@/hooks/useSavingsDashboard';
 import ConnectWallet from '@/components/ConnectWallet';
 import FundAccount from '@/components/FundAccount';
 import AddTrustline from '@/components/AddTrustline';
 import BalanceCard from '@/components/BalanceCard';
-import SendPayment from '@/components/SendPayment';
 import SavingsGoal from '@/components/SavingsGoal';
-import GoalPlanner, {
-  goalProgress,
-  remainingAmount,
-  type SavingsGoalItem,
-} from '@/components/GoalPlanner';
+import GoalPlanner from '@/components/GoalPlanner';
+import AddSavingsModal from '@/components/AddSavingsModal';
+import PaymentUtilityModal from '@/components/PaymentUtilityModal';
+import TransactionHistory from '@/components/TransactionHistory';
 import ToastStack, { type ToastMessage, type ToastTone } from '@/components/ToastStack';
-import { CONTRACT_ID, NETWORK_PASSPHRASE, RPC_URL } from '@/lib/stellar';
 import { friendlyError } from '@/lib/userFeedback';
-import type { ReactNode } from 'react';
+import { remainingAmount } from '@/lib/savingsDashboard';
+import { primaryButtonClassName } from '@/components/buttonStyles';
 
 const money = new Intl.NumberFormat('en-PH', {
   style: 'currency',
@@ -77,11 +75,14 @@ function StatCard({
 export default function Home() {
   const wallet = useWallet();
   const { publicKey, connecting, error: walletError } = wallet;
+  const { goals, selectedGoal, selectedGoalId, transactions, addGoal, addSavings, selectGoal } =
+    useSavingsDashboard();
   const [refreshKey, setRefreshKey] = useState(0);
-  const [goals, setGoals] = useState<SavingsGoalItem[]>([]);
-  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+  const [addSavingsOpen, setAddSavingsOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const previousPublicKey = useRef<string | null>(null);
+
   const refresh = useCallback(() => setRefreshKey((key) => key + 1), []);
 
   const notify = useCallback((tone: ToastTone, title: string, detail?: string) => {
@@ -108,7 +109,11 @@ export default function Home() {
   useEffect(() => {
     if (walletError) {
       const timer = window.setTimeout(() => {
-        notify('error', 'Wallet connection failed', friendlyError(walletError, 'Unable to connect Freighter.'));
+        notify(
+          'error',
+          'Wallet connection failed',
+          friendlyError(walletError, 'Unable to connect Freighter.'),
+        );
       }, 0);
 
       return () => window.clearTimeout(timer);
@@ -123,23 +128,44 @@ export default function Home() {
     return { totalSaved, totalTarget, completion };
   }, [goals]);
 
-  const selectedGoal = useMemo(
-    () => goals.find((goal) => goal.id === selectedGoalId) ?? goals[0] ?? null,
-    [goals, selectedGoalId],
+  const selectedGoalRemaining = selectedGoal ? remainingAmount(selectedGoal) : 0;
+
+  const handleAddSavings = useCallback(
+    (amount: number, note: string) => {
+      if (!selectedGoal) {
+        notify('warning', 'Select a goal', 'Choose a savings goal before adding funds.');
+        return;
+      }
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        notify('warning', 'Validation error', 'Amount must be greater than zero.');
+        return;
+      }
+
+      const remaining = remainingAmount(selectedGoal);
+      if (amount > remaining) {
+        notify(
+          'warning',
+          'Amount too large',
+          `You can only add up to ${money.format(remaining)} for this goal.`,
+        );
+        return;
+      }
+
+      addSavings(selectedGoal.id, amount, note);
+      notify(
+        'success',
+        'Savings added',
+        `${money.format(amount)} recorded for ${selectedGoal.title}.`,
+      );
+      setAddSavingsOpen(false);
+    },
+    [addSavings, notify, selectedGoal],
   );
-
-  const addGoal = (goal: SavingsGoalItem) => {
-    setGoals((current) => [goal, ...current]);
-    setSelectedGoalId(goal.id);
-  };
-
-  const dismissToast = (id: string) => {
-    setToasts((current) => current.filter((message) => message.id !== id));
-  };
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#0B1220] text-slate-50">
-      <ToastStack messages={toasts} onDismiss={dismissToast} />
+      <ToastStack messages={toasts} onDismiss={(id) => setToasts((current) => current.filter((message) => message.id !== id))} />
 
       <nav className="sticky top-0 z-40 border-b border-slate-800/80 bg-[#0B1220]/88 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
@@ -173,20 +199,21 @@ export default function Home() {
               Track your savings goals with confidence.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300">
-              Create goals, monitor progress, and stay on track toward your financial targets.
+              Create goals, record contributions locally, and keep the dashboard demo-ready
+              while on-chain savings stay available when the contract is configured.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <a
                 href="#create-goal"
-                className="inline-flex items-center rounded-lg bg-blue-500 px-5 py-3 text-sm font-semibold text-white shadow-xl shadow-blue-950/30 hover:bg-blue-400 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className={primaryButtonClassName()}
               >
                 Create Goal
               </a>
               <a
-                href="#goals"
+                href="#activity"
                 className="inline-flex items-center rounded-lg border border-slate-700 bg-slate-900/70 px-5 py-3 text-sm font-semibold text-slate-100 hover:border-slate-500 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
-                View Goals
+                View Activity
               </a>
             </div>
           </div>
@@ -252,17 +279,17 @@ export default function Home() {
           />
         </section>
 
-        <section
-          id="goals"
-          className="mt-10 grid gap-8 xl:grid-cols-[minmax(0,1fr)_420px]"
-        >
-          <GoalPlanner
-            goals={goals}
-            selectedGoalId={selectedGoal?.id ?? null}
-            onSelect={setSelectedGoalId}
-            onCreate={addGoal}
-            onNotify={notify}
-          />
+        <section id="activity" className="mt-10 grid gap-8 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="space-y-8">
+            <GoalPlanner
+              goals={goals}
+              selectedGoalId={selectedGoalId}
+              onSelect={selectGoal}
+              onCreate={addGoal}
+              onNotify={notify}
+            />
+            <TransactionHistory transactions={transactions} />
+          </div>
 
           <aside className="space-y-6">
             <section className="premium-card animate-card-in rounded-xl p-6">
@@ -275,7 +302,7 @@ export default function Home() {
                 </div>
                 {selectedGoal && (
                   <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-sm text-emerald-200">
-                    {goalProgress(selectedGoal)}%
+                    {Math.min(100, Math.round((selectedGoal.saved / selectedGoal.target) * 100))}%
                   </span>
                 )}
               </div>
@@ -284,7 +311,7 @@ export default function Home() {
                 <div className="mt-8 rounded-xl border border-dashed border-slate-700 bg-slate-900/55 p-8 text-center">
                   <ArrowDownRight className="mx-auto h-8 w-8 text-slate-500" />
                   <p className="mt-3 text-sm leading-6 text-slate-400">
-                    Create or select a savings goal to review details and next steps.
+                    Create or select a savings goal to review details and add a contribution.
                   </p>
                 </div>
               )}
@@ -310,7 +337,7 @@ export default function Home() {
                     <div className="flex justify-between gap-4">
                       <dt className="text-slate-400">Remaining Amount</dt>
                       <dd className="font-medium text-slate-100">
-                        {money.format(remainingAmount(selectedGoal))}
+                        {money.format(selectedGoalRemaining)}
                       </dd>
                     </div>
                     <div className="flex justify-between gap-4">
@@ -325,20 +352,29 @@ export default function Home() {
                     <div className="h-2.5 overflow-hidden rounded-full bg-slate-800">
                       <div
                         className="h-full rounded-full bg-emerald-400 transition-all duration-700 ease-out"
-                        style={{ width: `${goalProgress(selectedGoal)}%` }}
+                        style={{ width: `${Math.min(100, Math.round((selectedGoal.saved / selectedGoal.target) * 100))}%` }}
                       />
                     </div>
                     <p className="mt-2 text-right text-sm text-slate-300">
-                      {goalProgress(selectedGoal)}% complete
+                      {Math.min(100, Math.round((selectedGoal.saved / selectedGoal.target) * 100))}% complete
                     </p>
                   </div>
 
-                  <a
-                    href="#onchain-savings"
-                    className="inline-flex w-full items-center justify-center rounded-lg bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 shadow-xl shadow-emerald-950/20 hover:bg-emerald-400 active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-emerald-300"
-                  >
-                    Add Savings
-                  </a>
+                  <div className="flex flex-col gap-3">
+                    <Button
+                      color="success"
+                      onClick={() => setAddSavingsOpen(true)}
+                      disabled={selectedGoalRemaining <= 0}
+                    >
+                      <CircleDollarSign className="mr-2 h-4 w-4" />
+                      {selectedGoalRemaining <= 0 ? 'Goal funded' : 'Add Savings'}
+                    </Button>
+                    {selectedGoalRemaining <= 0 && (
+                      <p className="text-sm text-slate-400">
+                        This goal is fully funded. Create a new target or keep tracking activity in the history panel.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </section>
@@ -349,66 +385,70 @@ export default function Home() {
                   <p className="text-sm font-medium text-blue-300">Wallet Tools</p>
                   <h2 className="mt-1 text-xl font-semibold text-slate-50">Account actions</h2>
                 </div>
-                <button
-                  type="button"
-                  onClick={refresh}
-                  className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-300 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  aria-label="Refresh balances"
-                >
-                  <RefreshCcw className="h-4 w-4" />
-                </button>
               </div>
 
               {!publicKey && (
                 <p className="mt-5 rounded-xl border border-slate-700 bg-slate-900/55 p-4 text-sm leading-6 text-slate-300">
-                  Connect your wallet to see balances, fund testnet XLM, and manage
-                  payment utilities.
+                  Connect your wallet from the top-right button to enable account actions.
                 </p>
               )}
 
               {publicKey && (
                 <div className="mt-5 space-y-4">
-                  <div className="flex flex-wrap gap-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <FundAccount publicKey={publicKey} onFunded={refresh} onNotify={notify} />
                     <AddTrustline publicKey={publicKey} onDone={refresh} onNotify={notify} />
+                    <button
+                      type="button"
+                      onClick={() => setPaymentOpen(true)}
+                      className={primaryButtonClassName('w-full')}
+                    >
+                      Send Test Payment
+                    </button>
+                    <Button color="gray" className="w-full" onClick={refresh}>
+                      Refresh Balance
+                    </Button>
                   </div>
                   <BalanceCard publicKey={publicKey} refreshKey={refreshKey} />
                 </div>
               )}
             </section>
 
-            <details className="premium-card rounded-xl p-5">
-              <summary className="flex cursor-pointer list-none items-center gap-3 text-sm font-medium text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                <Settings2 className="h-4 w-4 text-slate-500" />
-                Developer Panel
+            <details className="premium-card animate-card-in rounded-xl p-5">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <span className="inline-flex items-center gap-2">
+                  <WalletCards className="h-4 w-4 text-slate-500" />
+                  Advanced / Technical Details
+                </span>
+                <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Optional
+                </span>
               </summary>
-              <dl className="mt-5 space-y-3 text-sm">
-                <div>
-                  <dt className="text-slate-500">RPC</dt>
-                  <dd className="mt-1 break-all font-mono text-slate-300">{RPC_URL}</dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Contract ID</dt>
-                  <dd className="mt-1 break-all font-mono text-slate-300">
-                    {CONTRACT_ID || 'NEXT_PUBLIC_CONTRACT_ID not set'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Network Passphrase</dt>
-                  <dd className="mt-1 break-all font-mono text-slate-300">
-                    {NETWORK_PASSPHRASE}
-                  </dd>
-                </div>
-              </dl>
+              <div className="mt-5">
+                <SavingsGoal publicKey={publicKey} onNotify={notify} />
+              </div>
             </details>
           </aside>
         </section>
-
-        <section id="onchain-savings" className="mt-10 grid gap-8 xl:grid-cols-[minmax(0,1fr)_420px]">
-          <SavingsGoal publicKey={publicKey} onNotify={notify} />
-          {publicKey && <SendPayment publicKey={publicKey} onSent={refresh} onNotify={notify} />}
-        </section>
       </div>
+
+      <AddSavingsModal
+        key={`${selectedGoal?.id ?? 'none'}:${addSavingsOpen ? 'open' : 'closed'}`}
+        open={addSavingsOpen}
+        goal={selectedGoal}
+        onClose={() => setAddSavingsOpen(false)}
+        onSubmit={handleAddSavings}
+      />
+
+      {publicKey && (
+        <PaymentUtilityModal
+          open={paymentOpen}
+          publicKey={publicKey}
+          onClose={() => setPaymentOpen(false)}
+          onSent={refresh}
+          onNotify={notify}
+        />
+      )}
     </main>
   );
 }

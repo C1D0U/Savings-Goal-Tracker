@@ -9,7 +9,7 @@ import {
   type SavingsState,
 } from '@/lib/contract';
 import { submitSignedXDR, pollTransaction } from '@/lib/payment';
-import { CONTRACT_ID, NETWORK_PASSPHRASE } from '@/lib/stellar';
+import { NETWORK_PASSPHRASE } from '@/lib/stellar';
 import { friendlyError } from '@/lib/userFeedback';
 import type { ToastTone } from '@/components/ToastStack';
 
@@ -103,19 +103,20 @@ export default function SavingsGoal({
 
   if (!configured) {
     return (
-      <section className="premium-card animate-card-in rounded-xl border-dashed p-6">
+      <section className="premium-card animate-card-in rounded-xl border-dashed p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-sm font-medium text-blue-300">On-chain Savings</p>
-            <h2 className="mt-1 text-2xl font-semibold text-slate-50">Contract not configured</h2>
+            <h2 className="mt-1 text-lg font-semibold text-slate-50">
+              On-chain savings pending setup
+            </h2>
           </div>
           <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-sm text-amber-100">
             Setup needed
           </span>
         </div>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300">
-          The dashboard is ready for planning. Add a contract ID when you want to enable
-          signed on-chain contributions.
+          On-chain savings will be enabled after a Soroban contract ID is configured.
         </p>
       </section>
     );
@@ -132,8 +133,8 @@ export default function SavingsGoal({
         <div>
           <p className="text-sm font-medium text-blue-300">On-chain Savings</p>
           <h2 className="mt-1 text-2xl font-semibold text-slate-50">Savings contract</h2>
-          <p className="mt-1 max-w-xl truncate font-mono text-xs text-slate-500">
-            {CONTRACT_ID}
+          <p className="mt-1 max-w-xl text-sm text-slate-400">
+            Live contract contribution tracking for the selected wallet.
           </p>
         </div>
         <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-sm text-emerald-100">
