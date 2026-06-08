@@ -1,40 +1,45 @@
 'use client';
+
 import { useState } from 'react';
+import { Coins } from 'lucide-react';
 import { fundTestnetAccount } from '@/lib/stellar';
+import { friendlyError } from '@/lib/userFeedback';
+import type { ToastTone } from '@/components/ToastStack';
 
 export default function FundAccount({
   publicKey,
   onFunded,
+  onNotify,
 }: {
   publicKey: string;
   onFunded: () => void;
+  onNotify?: (tone: ToastTone, title: string, detail?: string) => void;
 }) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const fund = async () => {
     setLoading(true);
-    setError('');
+    onNotify?.('loading', 'Funding account', 'Requesting testnet XLM from Friendbot.');
     try {
       await fundTestnetAccount(publicKey);
       onFunded();
+      onNotify?.('success', 'Account funded', 'Your testnet balance will refresh shortly.');
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Funding failed');
+      onNotify?.('error', 'Funding failed', friendlyError(e, 'Friendbot could not fund this account.'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div>
-      <button
-        onClick={fund}
-        disabled={loading}
-        className="rounded bg-amber-400 px-3 py-1.5 text-sm font-medium text-amber-950 transition-colors hover:bg-amber-500 disabled:opacity-50"
-      >
-        {loading ? 'Funding…' : 'Fund with Friendbot (testnet)'}
-      </button>
-      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
-    </div>
+    <button
+      type="button"
+      onClick={fund}
+      disabled={loading}
+      className="inline-flex items-center rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm font-medium text-amber-100 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-amber-300"
+    >
+      <Coins className="mr-2 h-4 w-4" />
+      {loading ? 'Funding' : 'Fund account'}
+    </button>
   );
 }

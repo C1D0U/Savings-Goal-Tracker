@@ -1,48 +1,57 @@
 'use client';
+
 import { useState } from 'react';
+import { Link2 } from 'lucide-react';
 import { buildAddUsdcTrustlineXDR } from '@/lib/trustline';
 import { signAndSubmit } from '@/lib/sign';
+import { friendlyError } from '@/lib/userFeedback';
+import type { ToastTone } from '@/components/ToastStack';
 
 type Status = 'idle' | 'working' | 'done' | 'error';
 
 export default function AddTrustline({
   publicKey,
   onDone,
+  onNotify,
 }: {
   publicKey: string;
   onDone: () => void;
+  onNotify?: (tone: ToastTone, title: string, detail?: string) => void;
 }) {
   const [status, setStatus] = useState<Status>('idle');
-  const [error, setError] = useState('');
 
   const add = async () => {
     setStatus('working');
-    setError('');
+    onNotify?.('loading', 'Transaction pending', 'Waiting for Freighter approval.');
     try {
       const xdr = await buildAddUsdcTrustlineXDR(publicKey);
       await signAndSubmit(xdr, publicKey);
       setStatus('done');
       onDone();
+      onNotify?.('success', 'Trustline added', 'USDC is now available for this account.');
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to add trustline');
       setStatus('error');
+      onNotify?.('error', 'Trustline failed', friendlyError(e, 'Could not add the USDC trustline.'));
     }
   };
 
-  if (status === 'done') {
-    return <p className="text-sm text-emerald-600">USDC trustline added.</p>;
-  }
-
   return (
-    <div>
-      <button
-        onClick={add}
-        disabled={status === 'working'}
-        className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-      >
-        {status === 'working' ? 'Adding USDC trustline…' : 'Add USDC trustline'}
-      </button>
-      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
-    </div>
+    <button
+      type="button"
+      onClick={add}
+      disabled={status === 'working'}
+      className={`inline-flex items-center rounded-lg border px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 ${
+        status === 'done'
+          ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-100 focus:ring-emerald-300'
+          : 'border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800 focus:ring-blue-400'
+      }`}
+    >
+      <Link2 className="mr-2 h-4 w-4" />
+      {status === 'working'
+        ? 'Adding trustline'
+        : status === 'done'
+          ? 'USDC ready'
+          : 'Add USDC trustline'}
+    </button>
   );
 }
